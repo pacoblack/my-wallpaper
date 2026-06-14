@@ -467,7 +467,7 @@ body.pure-mode .panel-toggle {
     </div>
 
     <!-- 外部数据关联挂载 -->
-    <script src="images.js"></script>
+    <script src="videos.js"></script>
 
     <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -504,12 +504,22 @@ document.addEventListener('DOMContentLoaded', function() {
         currentIndex = index;
 
         // 1. 极其重要：清除上一个视频释放出的虚拟内存链接
-        if (currentBlobUrl) {
+        if (currentBlobUrl && currentBlobUrl.startsWith('blob:')) {
             URL.revokeObjectURL(currentBlobUrl);
         }
 
         const currentVideoData = videoList[currentIndex];
-        currentBlobUrl = URL.createObjectURL(currentVideoData.fileObj);
+        
+        // 🚨 核心修复：严密分离两套完全不同的资源解析路径，彻底斩断 URL.createObjectURL 报错
+        if (currentVideoData.fileObj && currentVideoData.fileObj.isStaticPath) {
+            // A 渠道：如果是页面打开时、由 Python 离线脚本刷出来的静态视频
+            // 👈 修复核心：直接使用其自带的物理绝对路径，绝对不调 URL.createObjectURL
+            currentBlobUrl = currentVideoData.fileObj.staticPath; 
+        } else {
+            // B 渠道：如果是用户后续点击网页按钮、多选动态上传的原生 File 对象
+            // 👈 维持原样：必须通过原生内存转换
+            currentBlobUrl = URL.createObjectURL(currentVideoData.fileObj); 
+        }
         
         // 2. 核心大换血：清空原来的老载体，一口气循环克隆创建 9 个完全一样的视频节点！
         playerContainer.innerHTML = '';
@@ -747,7 +757,66 @@ document.addEventListener('DOMContentLoaded', function() {
     //     isPanelCollapsed = true;
     //     controlPanel.classList.add('collapsed'); // 默认对齐隐藏控制台，获得无瑕疵全屏视野
     // })();
-    isPanelCollapsed = false;
+   
+    (function() {
+        isPanelCollapsed = false; // 保持右上角侧边栏面板常驻展开
+        
+        const queueContainer = document.getElementById('directoryList');
+        
+        if (typeof ALL_VIDEO_DATA !== 'undefined' && ALL_VIDEO_DATA.length > 0) {
+            
+            // 👈 核心优化点 1：声明一个高性能内存字符串缓冲池，代替繁重的 DOM 创建动作
+            let htmlBuffer = "";
+
+            ALL_VIDEO_DATA.forEach(videoItem => {
+                const videoId = 'vid_py_' + Math.floor(Math.random() * 10000);
+                
+                // 将数据推入播放核心池（纯数据操作，速度极快，几万条也是微秒级）
+                videoList.push({
+                    id: videoId,
+                    name: videoItem.name,
+                    fileObj: { name: videoItem.name, isStaticPath: true, staticPath: videoItem.path }
+                });
+
+                // 👈 核心优化点 2：在内存中纯文字拼接 HTML，不惊动浏览器重绘
+                htmlBuffer += `
+                    <div class="directory-tag" id="${videoId}">
+                        <span><i class="fas fa-file-video"></i> ${videoItem.name}</span>
+                        <span class="remove" data-id="${videoId}"><i class="fas fa-times"></i></span>
+                    </div>
+                `;
+            });
+
+            // 👈 核心优化点 3：循环彻底结束后，一鼓作气一次性灌入网页，浏览器重绘压力直接降为 1 次！
+            if (queueContainer) {
+                queueContainer.innerHTML = htmlBuffer;
+
+                // 👈 核心优化点 4：利用高级“事件委托机制”，把所有 × 的删除事件绑定到父容器上，避免产生几万个监听器导致内存泄漏
+                queueContainer.addEventListener('click', function(event) {
+                    // 顺着点击的节点往上找，看是不是点到了红叉（.remove）
+                    const removeBtn = event.target.closest('.remove');
+                    if (removeBtn) {
+                        event.stopPropagation();
+                        const videoId = removeBtn.getAttribute('data-id');
+                        const tagElement = document.getElementById(videoId);
+                        if (tagElement) {
+                            removeSingleVideo(videoId, tagElement);
+                        }
+                    }
+                });
+            }
+
+            // 同步刷新总数统计
+            videoCountElement.textContent = videoList.length;
+
+            // 5. 瞬间拉起首首自动无缝连播
+            if (videoList.length > 0) {
+                playVideo(0);
+            }
+        } else {
+            console.log("⚠️ 未检测到视频数据库！请确保已经运行了 python refresh_videos.py 脚本。");
+        }
+    })();
 });
 </script>
 
