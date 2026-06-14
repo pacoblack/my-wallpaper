@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>全屏纯视频播放器</title>
     <!-- 引入 FontAwesome 图标库 -->
-    <link rel="stylesheet" href="https://cloudflare.com">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
 * {
     margin: 0;
@@ -46,7 +46,7 @@ video {
 .control-panel {
     position: fixed;
     bottom: 0;
-    left: 50%;
+    left: 85%;
     transform: translateX(-50%); /* 居中定位 */
     background: rgba(20, 20, 35, 0.92);
     backdrop-filter: blur(10px);
@@ -62,20 +62,21 @@ video {
 
 /* 桌面端折叠：保留居中并向下完全滑出屏幕 */
 .control-panel.collapsed {
-    transform: translateX(-50%) translateY(100%);
+    transform: translateX(45%); 
+    margin-bottom: 0;   
 }
 
 /* 顶部居中的半圆收纳把手 */
 .panel-toggle {
     position: absolute;
-    top: -40px;
-    left: 50%;
+    top: 50%;
+    left: -20px;
     transform: translateX(-50%);
-    width: 80px;
-    height: 40px;
+    width: 40px;
+    height: 80px;
     background: rgba(20, 20, 35, 0.92);
     backdrop-filter: blur(10px);
-    border-radius: 10px 10px 0 0;
+    border-radius: 10px 0 0 10px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -83,7 +84,7 @@ video {
     z-index: 11;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     border-left: 1px solid rgba(255, 255, 255, 0.1);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .panel-toggle i {
@@ -92,38 +93,9 @@ video {
     transition: transform 0.3s ease;
 }
 
-/* 强行提权修复：使用 f078 确保渲染向下箭头 */
-.panel-toggle i.fa-chevron-down {
-    font-family: "Font Awesome 6 Free" !important;
-    font-weight: 900 !important;
-    display: inline-block !important;
-    font-style: normal !important;
-}
-.panel-toggle i.fa-chevron-down::before {
-    content: "\f078" !important; 
-}
-
 /* 桌面端折叠联动：箭头原地旋转 180 度指向上方 */
-.control-panel.collapsed .panel-toggle i.fa-chevron-down {
+.control-panel.collapsed .panel-toggle i.fa-chevron-right {
     transform: rotate(180deg) !important;
-}
-
-/* 控制面板右上角的精致眼睛按钮 */
-.panel-eye-btn {
-    position: absolute;
-    right: 25px;
-    top: 22px;
-    background: none;
-    border: none;
-    color: #a9a9c5;
-    cursor: pointer;
-    font-size: 1.2rem;
-    transition: color 0.2s, opacity 0.2s;
-    padding: 4px;
-    z-index: 12;
-}
-.panel-eye-btn:hover {
-    color: #ff6b6b;
 }
 
 .title {
@@ -362,12 +334,6 @@ body.pure-mode .panel-toggle {
         padding: 0 30px;
     }
     
-    .panel-eye-btn {
-        right: 15px;
-        top: 15px;
-        font-size: 1.1rem;
-    }
-    
     .settings {
         flex-direction: column;
         align-items: center;
@@ -421,15 +387,10 @@ body.pure-mode .panel-toggle {
     <div class="control-panel" id="controlPanel">
         <!-- 顶部居中的半圆收纳把手（提权修复版） -->
         <div class="panel-toggle" id="panelToggle" title="折叠/展开面板">
-            <i class="fas fa-chevron-down"></i>
+            <i class="fas fa-chevron-right"></i>
         </div>
-
-        <!-- 内嵌在右上角的纯净全屏“隐藏”大眼睛 -->
-        <button id="hideUiBtn" class="panel-eye-btn" title="隐藏所有界面信息">
-            <i class="fas fa-eye-slash"></i>
-        </button>
         
-        <h2 class="title"><i class="fas fa-video"></i> 纯视频播放器</h2>
+        <h2 class="title"><i class="fas fa-video"></i> 视频播放器控制面板</h2>
         
         <div class="settings">
             <div class="setting-group">
@@ -639,27 +600,6 @@ document.addEventListener('DOMContentLoaded', function() {
     nextBtn.addEventListener('click', () => playVideo(currentIndex + 1));
     shuffleBtn.addEventListener('click', shuffleList);
     clearBtn.addEventListener('click', resetPlayer);
-
-    // ==================== 新增：纯净全屏模式切换 ====================
-    const hideUiBtn = document.getElementById('hideUiBtn');
-    let isPureMode = false;
-
-    hideUiBtn.addEventListener('click', function(e) {
-        e.stopPropagation(); // 阻止事件冒泡，防止触发底层的全屏静音切换
-        isPureMode = !isPureMode;
-        
-        // 切换 body 的 class，触发 CSS 隐藏/显示
-        document.body.classList.toggle('pure-mode', isPureMode);
-        
-        // 动态更换左下角的小图标
-        if (isPureMode) {
-            hideUiBtn.innerHTML = '<i class="fas fa-eye"></i>';
-            hideUiBtn.style.opacity = '0.4'; // 纯净模式下让眼睛图标变半透明，不干扰视线
-        } else {
-            hideUiBtn.innerHTML = '<i class="fas fa-eye-slash"></i>';
-            hideUiBtn.style.opacity = '1';
-        }
-    });
 
 
     // 监听播放倍速选择框
