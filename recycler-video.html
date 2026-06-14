@@ -21,25 +21,38 @@ body {
     position: relative;
 }
 
-/* 全屏播放区域 */
+/* 👈 升级：播放器主容器转换为 3x3 块的九宫格流式矩阵 */
 .player-container {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     z-index: 1;
     display: flex;
-    justify-content: center;
-    align-items: center;
+    flex-wrap: wrap; /* 允许视频自动换行排列 */
+    background: #000;
 }
 
-/* 视频标签样式：contain (等比例完整包含不裁剪) */
-video { 
-    width: 100%; 
-    height: 100%; 
-    object-fit: contain; 
+/* 👈 升级：默认情况下，九宫格里的所有视频克隆背景体样式 */
+.player-container video { 
+    width: 33.333vw;   /* 完美切分屏幕为三列 */
+    height: 33.333vh;  /* 完美切分屏幕为三行 */
+    object-fit: cover; /* 背景铺满整个格子，吞噬黑边 */
     background: #000; 
+    opacity: 0.25;     /* 极大的透明度，使其暗淡，绝不抢戏 */
+    filter: blur(8px); /* 高级毛玻璃模糊，作为环境光晕背景 */
+    transform: scale(1.05); /* 微微放大防漏缝 */
+    pointer-events: none; /* 禁用周围格子的交互 */
+}
+
+/* 👈 核心特权：唯独让正中间的第 5 个视频（即主显示器）脱胎换骨 */
+.player-container video:nth-child(5) {
+    object-fit: contain !important; /* 等比例包含，不裁剪完整画面 */
+    opacity: 1 !important;          /* 100% 正常亮度清晰呈现 */
+    filter: none !important;        /* 移除毛玻璃模糊 */
+    transform: none !important;     /* 恢复原始大小 */
+    pointer-events: auto !important; /* 唯独让中间的画面接受点击解锁声音 */
 }
 
 /* 控制面板（大屏/桌面端基准样式） */
@@ -371,7 +384,6 @@ body.pure-mode .panel-toggle {
 <body>
     <!-- 全屏视频渲染载体 -->
     <div class="player-container" id="playerContainer">
-        <video id="mainVideo" playsinline></video>
     </div>
     
     <!-- 左上角：状态指示器（激活纯净模式时会跟随隐藏） -->
@@ -444,7 +456,6 @@ body.pure-mode .panel-toggle {
     <script>
 document.addEventListener('DOMContentLoaded', function() {
     // ==================== 1. DOM 元素获取 ====================
-    const mainVideo = document.getElementById('mainVideo');
     const speedSelect = document.getElementById('speedSelect');
     const pauseBtn = document.getElementById('pauseBtn');
     const prevBtn = document.getElementById('prevBtn');
@@ -471,12 +482,12 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // 循环边界处理
+        // 循环边界保护
         if (index >= videoList.length) index = 0;
         if (index < 0) index = videoList.length - 1;
         currentIndex = index;
 
-        // 及时释放上一个视频的虚拟内存链接，防止大文件崩溃
+        // 1. 极其重要：清除上一个视频释放出的虚拟内存链接
         if (currentBlobUrl) {
             URL.revokeObjectURL(currentBlobUrl);
         }
@@ -484,35 +495,74 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentVideoData = videoList[currentIndex];
         currentBlobUrl = URL.createObjectURL(currentVideoData.fileObj);
         
-        // 动态注入视频流数据
-        mainVideo.src = currentBlobUrl;
-        mainVideo.playbackRate = parseFloat(speedSelect.value);
-        mainVideo.muted = isMuted;
+        // 2. 核心大换血：清空原来的老载体，一口气循环克隆创建 9 个完全一样的视频节点！
+        playerContainer.innerHTML = '';
+        
+        for (let i = 0; i < 9; i++) {
+            const videoNode = document.createElement('video');
+            videoNode.src = currentBlobUrl;
+            videoNode.playsInline = true;
+            videoNode.setAttribute('preload', 'auto');
+            
+            // 维持音轨状态与倍速
+            videoNode.playbackRate = parseFloat(speedSelect.value);
+            videoNode.muted = isMuted;
 
-        // 显示文字提示区
+            // 【主母体绑定策略】：
+            // 唯独为正中间的第 5 个视频（即索引为 4 的那个主画面）赋予灵魂
+            if (i === 4) {
+                videoNode.id = "mainVideo"; // 赋予原主视频 id，确保外部所有的主监听器依然能精确抓到它
+                
+                // 连播绑定：当且仅当主视频播完后，无缝切入下一首
+                videoNode.addEventListener('ended', function() {
+                    if (!isPaused) playVideo(currentIndex + 1);
+                });
+            } else {
+                // 周围的 8 个小克隆体，在画面动起来的时候，为了防止声音重叠或加载错位，强制静音并跳过完结监听
+                videoNode.muted = true;
+            }
+
+            // 塞入网页格子中
+            playerContainer.appendChild(videoNode);
+        }
+
+        // 3. 联动机制实现：当主视频启动/暂停/调速时，号令周围 8 个分身动作完全一致！
+        const allVideos = playerContainer.querySelectorAll('video');
+        const primeVideo = document.getElementById('mainVideo');
+
+        // 每当中间的主视频时间轴前进，强迫周围 8 个分身校对时间（防止由于帧率差异导致背景和中间画面错位）
+        primeVideo.addEventListener('timeupdate', function() {
+            allVideos.forEach(v => {
+                if (v !== primeVideo && Math.abs(v.currentTime - primeVideo.currentTime) > 0.3) {
+                    v.currentTime = primeVideo.currentTime;
+                }
+            });
+        });
+
+        // 4. 文字信息刷新呈现
         videoInfo.classList.remove('hidden');
         updateVideoText();
 
-        // 精准控制播放状态
+        // 5. 执行具体的总体播放动作
         if (!isPaused) {
-            mainVideo.play().catch(e => {
-                console.log("浏览器限制自动播放，已降级静音挂起:", e);
-            });
+            // 中间播，周围全部跟着一起启动
+            allVideos.forEach(v => v.play().catch(() => {}));
         } else {
-            mainVideo.pause();
+            allVideos.forEach(v => v.pause());
         }
     }
 
-    // ==================== 4. 播放器状态清空重置 ====================
+    // ==================== 4. 升级后的九宫格清空重置 ====================
     function resetPlayer() {
         if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
         currentBlobUrl = null;
         videoList = [];
         currentIndex = 0;
-        mainVideo.src = '';
+        playerContainer.innerHTML = ''; // 灰飞烟灭清除 9 个视频格子
         videoCountElement.textContent = "0";
         videoInfo.classList.add('hidden');
     }
+
 
     // ==================== 5. 提示信息动态刷新 ====================
     function updateVideoText() {
@@ -545,11 +595,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // ==================== 7. 全量核心事件监听绑定 ====================
 
     // 【智能核心】：视频自然播放结束，无缝触发下一曲自动装载
-    mainVideo.addEventListener('ended', function() {
-        if (!isPaused) {
-            playVideo(currentIndex + 1);
-        }
-    });
+    // mainVideo.addEventListener('ended', function() {
+    //     if (!isPaused) {
+    //         playVideo(currentIndex + 1);
+    //     }
+    // });
 
     // 监听本地视频多选文件输入
     videoInput.addEventListener('change', function(e) {
@@ -583,15 +633,16 @@ document.addEventListener('DOMContentLoaded', function() {
     pauseBtn.addEventListener('click', function() {
         if (videoList.length === 0) return;
         isPaused = !isPaused;
+        const allVideos = playerContainer.querySelectorAll('video');
 
         if (isPaused) {
             pauseBtn.innerHTML = '<i class="fas fa-play"></i> 继续播放';
             pauseBtn.classList.add('secondary');
-            mainVideo.pause();
+            allVideos.forEach(v => v.pause()); // 全场一键暂停
         } else {
             pauseBtn.innerHTML = '<i class="fas fa-pause"></i> 暂停播放';
             pauseBtn.classList.remove('secondary');
-            mainVideo.play().catch(e => {});
+            allVideos.forEach(v => v.play().catch(e => {})); // 全场一键起飞播放
         }
     });
 
@@ -604,7 +655,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 监听播放倍速选择框
     speedSelect.addEventListener('change', function() {
-        mainVideo.playbackRate = parseFloat(speedSelect.value);
+        const allVideos = playerContainer.querySelectorAll('video');
+        allVideos.forEach(v => v.playbackRate = parseFloat(speedSelect.value)); // 全场一键调速
     });
 
     // 控制侧边栏手风琴展开与隐退
@@ -617,7 +669,12 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('playerContainer').addEventListener('click', function() {
         if (videoList.length === 0) return;
         isMuted = !isMuted;
-        mainVideo.muted = isMuted;
+        
+        // 唯独解锁中间主视频（id为mainVideo）的声音，其余8个始终保持静音
+        const primeVideo = document.getElementById('mainVideo');
+        if (primeVideo) {
+            primeVideo.muted = isMuted;
+        }
         updateVideoText();
     });
 
