@@ -228,12 +228,43 @@ select:focus, input:focus {
     gap: 10px;
     font-size: 1.1rem;
 }
-.directory-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 10px;
+/* ==================== 1. 优化列表滚动区，防止撑爆面板 ==================== */
+.directory-list { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px; 
+    max-height: 160px;      /* 👈 严格限制最高高度，超过后自动收拢 */
+    overflow-y: auto;       /* 👈 允许垂直方向产生滚动条 */
+    margin-bottom: 10px; 
+    padding-right: 4px;
 }
+
+/* 为视频列表定制精美暗色微缩滚动条（支持 Chrome/Edge/Safari） */
+.directory-list::-webkit-scrollbar { width: 5px; }
+.directory-list::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); border-radius: 10px; }
+.directory-list::-webkit-scrollbar-thumb { background: rgba(78, 205, 196, 0.3); border-radius: 10px; }
+.directory-list::-webkit-scrollbar-thumb:hover { background: rgba(78, 205, 196, 0.6); }
+
+/* ==================== 2. 新增：当前播放视频的高亮外发光样式 ==================== */
+.directory-tag {
+    cursor: pointer;        /* 👈 让整个视频标签变成可点击的手型指针 */
+    transition: all 0.2s ease-in-out;
+}
+.directory-tag:hover {
+    background: rgba(255, 107, 107, 0.3); /* 悬停时微微加深提示可点 */
+}
+
+/* 正在播放时的流光青色高亮 */
+.directory-tag.active-playing {
+    background: rgba(78, 205, 196, 0.25) !important;
+    border: 1px solid #4ecdc4 !important;           
+    box-shadow: 0 0 10px rgba(78, 205, 196, 0.4);   /* 带有外发光特效 */
+    font-weight: bold;
+}
+.directory-tag.active-playing i {
+    color: #4ecdc4 !important; /* 图标同步变青色 */
+}
+
 .directory-actions {
     margin-top: 15px;
     display: flex;
@@ -569,6 +600,22 @@ document.addEventListener('DOMContentLoaded', function() {
         videoInfo.classList.remove('hidden');
         updateVideoText();
 
+        document.querySelectorAll('#directoryList .directory-tag').forEach(tag => {
+            tag.classList.remove('active-playing');
+        });
+
+        // 2. 根据当前最新的视频 id 抓取对应的 DOM 胶囊标签并织入高亮
+        const currentVideoObj = videoList[currentIndex];
+        if (currentVideoObj) {
+            const currentTag = document.getElementById(currentVideoObj.id);
+            if (currentTag) {
+                currentTag.classList.add('active-playing');
+                
+                // 3. 如果当前播放的视频被埋在滚动条下方，自动平滑滚动到列表视野正中央
+                currentTag.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
         // 5. 执行具体的总体播放动作
         if (!isPaused) {
             // 中间播，周围全部跟着一起启动
@@ -801,6 +848,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         const tagElement = document.getElementById(videoId);
                         if (tagElement) {
                             removeSingleVideo(videoId, tagElement);
+                        }
+                        return;
+                    }
+
+                    // 2. 如果没有点红叉，而是点击了整个标签的其余空白任意地方
+                    const clickedTag = event.target.closest('.directory-tag');
+                    if (clickedTag) {
+                        const videoId = clickedTag.id;
+                        
+                        // 顺着 id 在我们的核心数据池里抓取该视频对应的最新索引位置
+                        const targetIndex = videoList.findIndex(vid => vid.id === videoId);
+                        if (targetIndex !== -1) {
+                            // 呼叫播放中心，立刻全屏起飞点播这个视频！
+                            playVideo(targetIndex);
                         }
                     }
                 });
