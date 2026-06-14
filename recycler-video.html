@@ -623,27 +623,75 @@ document.addEventListener('DOMContentLoaded', function() {
         if (files.length === 0) return;
 
         const isFirstLoad = videoList.length === 0;
+        
+        // 精准定位刚才在 HTML DOM 中新加的那个 id="directoryList" 容器
+        const queueContainer = document.getElementById('directoryList');
 
-        // 遍历提取文件并推入缓存池
+        // 遍历提取选中的视频文件
         for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            
+            // 为每一个视频文件创建一个唯一随机 ID，方便独立单删
+            const videoId = 'vid_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+            // 1. 推入核心数据池
             videoList.push({
-                name: files[i].name,
-                fileObj: files[i]
+                id: videoId,
+                name: file.name,
+                fileObj: file
+            });
+
+            // 2. 动态创建 DOM 标签，完全遵循您的代码格式要求
+            const tag = document.createElement('div');
+            tag.className = 'directory-tag';
+            tag.innerHTML = `
+                <span><i class="fas fa-file-video"></i> ${file.name}</span>
+                <span class="remove" data-id="${videoId}"><i class="fas fa-times"></i></span>
+            `;
+            
+            // 👈 顺理成章：直接 appendChild 塞进 DOM 列表框里
+            if (queueContainer) {
+                queueContainer.appendChild(tag);
+            }
+
+            // 3. 绑定单个红叉的精密单选删除动作
+            tag.querySelector('.remove').addEventListener('click', function(event) {
+                event.stopPropagation(); // 阻止冒泡
+                removeSingleVideo(videoId, tag);
             });
         }
 
         videoCountElement.textContent = videoList.length;
 
-        // 若属于首次导入，立即从第 1 首开始执行全屏连播
         if (isFirstLoad) {
             playVideo(0);
         } else {
             updateVideoText();
         }
-
-        // 还原触发器，允许重复追加相同名称的文件
         e.target.value = '';
     });
+    // 单选视频删除与播放器智能连带切换
+    function removeSingleVideo(videoId, tagElement) {
+        const currentPlayingVideo = videoList[currentIndex];
+        const deletingIndex = videoList.findIndex(vid => vid.id === videoId);
+
+        videoList = videoList.filter(vid => vid.id !== videoId);
+        tagElement.remove(); // 抹除对应的 DOM 节点
+        
+        videoCountElement.textContent = videoList.length;
+
+        if (videoList.length === 0) {
+            resetPlayer();
+            return;
+        }
+
+        if (currentPlayingVideo && currentPlayingVideo.id === videoId) {
+            playVideo(deletingIndex); 
+        } else {
+            currentIndex = videoList.indexOf(currentPlayingVideo);
+            updateVideoText();
+        }
+    }
 
     // 暂停 / 播放切换逻辑
     pauseBtn.addEventListener('click', function() {
