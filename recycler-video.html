@@ -29,30 +29,46 @@ body {
     width: 100vw;
     height: 100vh;
     z-index: 1;
-    display: flex;
+    position: relative; 
     flex-wrap: wrap; /* 允许视频自动换行排列 */
     background: #000;
 }
 
 /* 👈 升级：默认情况下，九宫格里的所有视频克隆背景体样式 */
 .player-container video { 
-    width: 33.333vw;   /* 完美切分屏幕为三列 */
-    height: 33.333vh;  /* 完美切分屏幕为三行 */
-    object-fit: cover; /* 背景铺满整个格子，吞噬黑边 */
-    background: #000; 
-    opacity: 0.25;     /* 极大的透明度，使其暗淡，绝不抢戏 */
-    filter: blur(8px); /* 高级毛玻璃模糊，作为环境光晕背景 */
-    transform: scale(1.05); /* 微微放大防漏缝 */
-    pointer-events: none; /* 禁用周围格子的交互 */
+    position: absolute;
+    width: 33.333vw;   /* 背景格子依然保持三分之一 */
+    height: 33.333vh;  
+    object-fit: cover; /* 背景完全铺满格子 */
+    opacity: 0.85;     /* 保持淡化不抢戏 */
+    filter: blur(8px); /* 华丽的毛玻璃模糊 */
+    transform: scale(1.05); 
+    pointer-events: none; 
+    z-index: 2;        /* 👈 关键：图层较低，老老实实当背景 */
 }
+.player-container video:nth-child(1) { left: 0; top: 0; }
+.player-container video:nth-child(2) { left: 33.333vw; top: 0; }
+.player-container video:nth-child(3) { left: 66.666vw; top: 0; }
+.player-container video:nth-child(4) { left: 0; top: 33.333vh; }
+/* 第 5 个是主视频，位置在中间（left: 33.333vw; top: 33.333vh;）但它会被下方选择器接管重写 */
+.player-container video:nth-child(6) { left: 66.666vw; top: 33.333vh; }
+.player-container video:nth-child(7) { left: 0; top: 66.666vh; }
+.player-container video:nth-child(8) { left: 33.333vw; top: 66.666vh; }
+.player-container video:nth-child(9) { left: 66.666vw; top: 66.666vh; }
 
 /* 👈 核心特权：唯独让正中间的第 5 个视频（即主显示器）脱胎换骨 */
 .player-container video:nth-child(5) {
-    object-fit: contain !important; /* 等比例包含，不裁剪完整画面 */
-    opacity: 1 !important;          /* 100% 正常亮度清晰呈现 */
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;  /* 👈 修改：强行恢复 100% 屏幕宽度 */
+    height: 100vh !important; /* 👈 修改：强行恢复 100% 屏幕高度 */
+    object-fit: contain !important; /* 👈 严格保持：等比例包含不裁剪，比例完美 */
+    opacity: 1 !important;          /* 100% 亮度和清晰度呈现 */
     filter: none !important;        /* 移除毛玻璃模糊 */
-    transform: none !important;     /* 恢复原始大小 */
-    pointer-events: auto !important; /* 唯独让中间的画面接受点击解锁声音 */
+    transform: none !important;     
+    pointer-events: auto !important; 
+    z-index: 3 !important;   /* 👈 关键：图层级别高于背景，完美压在环境光晕的最上方 */
 }
 
 /* 控制面板（大屏/桌面端基准样式） */
