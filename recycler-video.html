@@ -155,6 +155,12 @@ body {
     min-width: 150px;
 }
 
+#skipInput {
+    text-align: right;
+    font-weight: 600;
+    color: #4ecdc4; /* 给予亮丽的青色显示 */
+}
+
 label {
     font-size: 0.9rem;
     margin-bottom: 8px;
@@ -461,7 +467,12 @@ body.pure-mode .panel-toggle {
                     <option value="2.0">2.0x 快速</option>
                 </select>
             </div>
+            <div class="setting-group">
+                <label for="skipInput"><i class="fas fa-arrows-alt-h"></i> 键盘快进/后退 (毫秒)</label>
+                <input type="number" id="skipInput" min="100" max="60000" step="100" value="5000">
+            </div>
         </div>
+        
         
         <div class="buttons">
             <button id="pauseBtn" class="btn">
@@ -514,6 +525,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const controlPanel = document.getElementById('controlPanel');
     const panelToggle = document.getElementById('panelToggle');
     const videoInfo = document.getElementById('videoInfo');
+    const skipInput = document.getElementById('skipInput');
     
     // ==================== 2. 核心状态变量 ====================
     let videoList = []; // 存储结构: { name, fileObj }
@@ -797,6 +809,45 @@ document.addEventListener('DOMContentLoaded', function() {
             primeVideo.muted = isMuted;
         }
         updateVideoText();
+    });
+
+    document.addEventListener('keydown', function(event) {
+        // 安全保护：如果用户当时正在输入框里打字（比如正在改倍速或改毫秒），不触发快捷键
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'SELECT') {
+            return;
+        }
+
+        // 1. 检查播放列表中是否已经有视频
+        const allVideos = playerContainer.querySelectorAll('video');
+        const primeVideo = document.getElementById('mainVideo');
+        if (allVideos.length === 0 || !primeVideo) return;
+
+        // 2. 实时抓取用户在面板中设定的毫秒数值，并将其换算为视频底层所需的“秒”单位
+        const skipMilliseconds = parseFloat(skipInput.value) || 5000;
+        const skipSeconds = skipMilliseconds / 1000;
+
+        // 3. 拦截并接管键盘“左方向键”动作
+        if (event.key === 'ArrowLeft') {
+            event.preventDefault(); // 阻止浏览器默认的滚动条或自带行为
+            
+            // 计算跳转后的新时间戳（如果退过头了，强制安全归零）
+            let targetTime = Math.max(0, primeVideo.currentTime - skipSeconds);
+            
+            // 👈 核心铁律：号令全场 3 个横向连屏视频同时向后倒带，保持绝对帧同步！
+            allVideos.forEach(v => v.currentTime = targetTime);
+            console.log(`[快退] 成功后退 ${skipMilliseconds} 毫秒`);
+        }
+        // 4. 拦截并接管键盘“右方向键”动作
+        else if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            
+            // 计算跳转后的新时间戳（如果快进到尽头了，强制卡在视频最后一秒，从而能顺利触发 ended 完结连播）
+            let targetTime = Math.min(primeVideo.duration, primeVideo.currentTime + skipSeconds);
+            
+            // 👈 核心铁律：号令全场 3 个横向连屏视频同时向前快进，保持绝对帧同步！
+            allVideos.forEach(v => v.currentTime = targetTime);
+            console.log(`[快进] 成功前进 ${skipMilliseconds} 毫秒`);
+        }
     });
 
     // ==================== 8. 系统默认启动序列 ====================
