@@ -472,7 +472,6 @@
             let slides = [];
             let intervalId = null;
             let isPaused = false;
-            let imageFiles = [];
             let addedDirectories = new Set();
             let isPanelCollapsed = false;
             
@@ -543,7 +542,7 @@
             
             // 更新图片计数
             function updateImageCount() {
-                imageCountElement.textContent = imageFiles.length;
+                imageCountElement.textContent = ALL_IMAGE_DATA.length;
             }
             
             // 随机排序幻灯片
@@ -633,7 +632,7 @@
                     const extension = file.name.split('.').pop().toLowerCase();
                     
                     if (supportedFormats.includes(extension)) {
-                        imageFiles.push(file);
+                        ALL_IMAGE_DATA.push(file);
                         addedFiles++;
                     }
                 }
@@ -665,7 +664,7 @@
             // 删除目录
             function removeDirectory(directoryName) {
                 // 移除该目录下的所有图片文件
-                imageFiles = imageFiles.filter(file => {
+                ALL_IMAGE_DATA = ALL_IMAGE_DATA.filter(file => {
                     // 检查文件是否属于该目录
                     const fileDirectory = file.webkitRelativePath.split('/')[0];
                     return fileDirectory !== directoryName;
@@ -688,7 +687,7 @@
                 });
                 
                 // 重置所有状态
-                imageFiles = [];
+                ALL_IMAGE_DATA = [];
                 addedDirectories.clear();
                 directoryList.innerHTML = '';
                 
@@ -708,7 +707,7 @@
             transitionInput.addEventListener('change', updateTransitionTime);
             
             pauseBtn.addEventListener('click', function() {
-                if (imageFiles.length === 0) return;
+                if (ALL_IMAGE_DATA.length === 0) return;
                 
                 isPaused = !isPaused;
                 if (isPaused) {
@@ -737,7 +736,7 @@
             });
             
             shuffleBtn.addEventListener('click', function() {
-                if (imageFiles.length === 0) return;
+                if (ALL_IMAGE_DATA.length === 0) return;
                 
                 shuffleSlides();
                 currentSlide = 0;
