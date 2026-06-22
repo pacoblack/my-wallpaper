@@ -1,5 +1,6 @@
 import os
 import json
+import random 
 
 # ==================== 🛠️ 路径与配置自定义区域 ====================
 # 重要提示：由于浏览器的安全限制，如果你的 HTML 文件在 D 盘，
@@ -49,6 +50,9 @@ def generate_image_list():
         print(f"❌ 扫描过程中发生未知错误: {e}")
         os.system("pause")
         return
+
+    # 随机打乱图片顺序，实现随机播放
+    random.shuffle(final_paths)
 
     # 3. 直接输出一个扁平化的纯净数组给前端
     js_content = "/* 此文件由 python 脚本自动生成，请勿手动修改 */\n\n"
